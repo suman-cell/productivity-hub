@@ -22,6 +22,10 @@ const PORT = process.env.PORT || 5000;
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+const taskRoutes = require('./routes/tasks');
+app.use('/api/tasks', taskRoutes);
+
+
 mongoose.connect(MONGO)
   .then(() => {
     console.log('✅ MongoDB connected');

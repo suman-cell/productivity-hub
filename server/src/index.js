@@ -19,6 +19,9 @@ app.get('/', (req, res) => {
 const MONGO = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/productivity-hub';
 const PORT = process.env.PORT || 5000;
 
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
 mongoose.connect(MONGO)
   .then(() => {
     console.log('✅ MongoDB connected');

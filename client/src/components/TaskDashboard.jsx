@@ -16,7 +16,7 @@ export default function TaskDashboard({ user, onLogout }) {
 
   useEffect(() => {
     fetchTasks();
-    // eslint-disable-next-line
+       
   }, []);
 
   async function addTask(e) {

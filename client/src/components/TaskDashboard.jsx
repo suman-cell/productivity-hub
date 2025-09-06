@@ -1,12 +1,15 @@
+// client/src/components/TaskDashboard.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
+import { useToast } from "./ToastContext";
 
 export default function TaskDashboard({ user }) {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   function isAdmin() {
     return user?.role === "admin";
@@ -26,7 +29,7 @@ export default function TaskDashboard({ user }) {
       setTasks(res.data);
     } catch (err) {
       console.error("Failed to fetch tasks", err);
-      alert("Failed to load tasks");
+      toast.show("Failed to load tasks", "error");
     }
   }
 
@@ -37,17 +40,33 @@ export default function TaskDashboard({ user }) {
 
   async function addTask(e) {
     e.preventDefault();
-    if (!title) return;
+    if (!title) {
+      toast.show("Please enter a task title", "error");
+      return;
+    }
     setLoading(true);
     try {
       await API.post("/tasks", { title, description: "" });
       setTitle("");
       await fetchTasks();
+      toast.show("Task added", "success");
     } catch (err) {
       console.error(err);
-      alert(err?.response?.data?.msg || "Failed to add task");
+      toast.show(err?.response?.data?.msg || "Failed to add task", "error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleStatus(t) {
+    const nextStatus = t.status === "todo" ? "inprogress" : (t.status === "inprogress" ? "done" : "todo");
+    try {
+      const res = await API.put(`/tasks/${t._id}`, { status: nextStatus });
+      setTasks(prev => prev.map(x => x._id === t._id ? res.data : x));
+      toast.show("Task updated", "success");
+    } catch (err) {
+      console.error(err);
+      toast.show(err?.response?.data?.msg || "Update failed", "error");
     }
   }
 
@@ -56,72 +75,63 @@ export default function TaskDashboard({ user }) {
     try {
       await API.delete(`/tasks/${id}`);
       setTasks(prev => prev.filter(t => t._id !== id));
+      toast.show("Task deleted", "info");
     } catch (err) {
       console.error("Delete failed", err);
-      alert(err?.response?.data?.msg || "Delete failed");
+      toast.show(err?.response?.data?.msg || "Delete failed", "error");
     }
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      {/* Page header: title + optional admin link (nav handles user + logout) */}
+    <div className="container">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h1 style={{ margin: 0 }}>Tasks</h1>
-
-        {/* Keep a small admin nav button here only if you want; NavBar also has Admin link */}
         {isAdmin() && (
-          <button onClick={() => navigate('/admin')} style={{ marginLeft: 12 }}>
+          <button className="btn" onClick={() => navigate('/admin')} style={{ marginLeft: 12 }}>
             Admin: Users
           </button>
         )}
       </div>
 
-      <form onSubmit={addTask} style={{ marginBottom: 16, display: "flex", gap: 8 }}>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="New task title" style={{ padding: 8, flex: 1 }} />
-        <button type="submit" style={{ padding: 8 }} disabled={loading}>{loading ? "Adding..." : "Add"}</button>
-      </form>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <form onSubmit={addTask} className="row">
+          <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="New task title" />
+          <button className="btn btn-primary" type="submit" disabled={loading}>
+            {loading ? "Adding..." : "Add"}
+          </button>
+        </form>
+      </div>
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {tasks.map(t => (
-          <li key={t._id} style={{ padding: 12, borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>{t.title}</div>
-              <div style={{ color: "#666", fontSize: 13 }}>
-                {t.status} • {new Date(t.createdAt).toLocaleString()}
+      <div className="card">
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {tasks.map(t => (
+            <li key={t._id} className="task">
+              <div>
+                <div className="task-title">{t.title}</div>
+                <div className="task-meta">{t.status} • {new Date(t.createdAt).toLocaleString()}</div>
+                <div style={{ marginTop: 6, fontSize: 13, color: "#cbd5e1" }}>
+                  Assigned to:{" "}
+                  {t.assignee ? (typeof t.assignee === "string" ? t.assignee : t.assignee.name || t.assignee.email) : "Unassigned"}
+                  {" "}
+                  {t.assignee && (typeof t.assignee !== "string") && (
+                    <span className="badge" style={{ marginLeft: 8 }}>{t.assignee.role || "member"}</span>
+                  )}
+                </div>
               </div>
-              <div style={{ marginTop: 6, fontSize: 13, color: "#444" }}>
-                Assigned to:{" "}
-                {t.assignee ? (typeof t.assignee === "string" ? t.assignee : t.assignee.name || t.assignee.email) : "Unassigned"}
-                {" "}
-                {t.assignee && (typeof t.assignee !== "string") && (
-                  <span style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 6, background: "#eef2ff", color: "#3730a3", fontSize: 12 }}>
-                    {t.assignee.role || "member"}
-                  </span>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {(isAdmin() || isAssignee(t)) && (
+                  <button className="btn" onClick={() => toggleStatus(t)}>Toggle Status</button>
                 )}
+
+                {(isAdmin() || isAssignee(t)) ? (
+                  <button className="btn" onClick={() => removeTask(t._id)} style={{ color: "crimson" }}>Delete</button>
+                ) : null}
               </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {(isAdmin() || isAssignee(t)) && (
-                <button onClick={async () => {
-                  const nextStatus = t.status === "todo" ? "inprogress" : (t.status === "inprogress" ? "done" : "todo");
-                  try {
-                    const res = await API.put(`/tasks/${t._id}`, { status: nextStatus });
-                    setTasks(prev => prev.map(x => x._id === t._id ? res.data : x));
-                  } catch (err) {
-                    console.error(err);
-                    alert("Update failed");
-                  }
-                }}>Toggle Status</button>
-              )}
-
-              {(isAdmin() || isAssignee(t)) ? (
-                <button onClick={() => removeTask(t._id)} style={{ color: "crimson" }}>Delete</button>
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

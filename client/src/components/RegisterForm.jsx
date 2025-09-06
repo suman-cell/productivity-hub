@@ -1,5 +1,7 @@
+// client/src/components/RegisterForm.jsx
 import { useState } from "react";
 import API from "../api";
+import { useToast } from "./ToastContext";
 
 export default function RegisterForm({ onRegistered, switchToLogin }) {
   const [name, setName] = useState("");
@@ -7,38 +9,57 @@ export default function RegisterForm({ onRegistered, switchToLogin }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   async function submit(e) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
-      const res = await API.post("/auth/register", { name, email, password });
-      setLoading(false);
-      // Optionally auto-login: call /auth/login here. For now notify caller.
-      if (onRegistered) onRegistered(res.data);
-      // switch to login UI so user can authenticate
+      // Register
+      await API.post("/auth/register", { name, email, password });
+      toast.show("Registered successfully", "success");
+
+      // Auto-login
+      const loginRes = await API.post("/auth/login", { email, password });
+      const token = loginRes.data.token;
+      const user = loginRes.data.user;
+
+      // persist
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      toast.show(`Welcome, ${user.name}`, "success");
+
+      // notify parent (App) to set user state
+      if (onRegistered) onRegistered(user);
+      // optionally switch view
       if (switchToLogin) switchToLogin();
     } catch (err) {
+      const msg = err?.response?.data?.msg || "Registration failed";
+      setError(msg);
+      toast.show(msg, "error");
+    } finally {
       setLoading(false);
-      setError(err?.response?.data?.msg || "Registration failed");
     }
   }
 
   return (
-    <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"100vh",background:"#f3f4f6"}}>
-      <form onSubmit={submit} style={{background:"#fff",padding:20,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,0.08)",width:380}}>
-        <h2 style={{marginBottom:12}}>Register</h2>
-        {error && <div style={{color:"red",marginBottom:8}}>{error}</div>}
-        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" style={{width:"100%",padding:8,marginBottom:8}} required />
-        <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={{width:"100%",padding:8,marginBottom:8}} required />
-        <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" style={{width:"100%",padding:8,marginBottom:12}} required />
-        <button type="submit" style={{width:"100%",padding:10,background:"#059669",color:"#fff",border:"none",borderRadius:6}} disabled={loading}>
-          {loading ? "Registering..." : "Register"}
-        </button>
-
-        <div style={{marginTop:12, textAlign:"center"}}>
-          <small>Already have an account? <button type="button" onClick={switchToLogin} style={{color:"#2563eb",background:"none",border:"none",cursor:"pointer"}}>Login</button></small>
+    <div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"100vh",background:"#0b1220"}}>
+      <form onSubmit={submit} className="card form" style={{width:380}}>
+        <h2 style={{margin:0}}>Create account</h2>
+        {error && <div style={{color:"#ef4444"}}>{error}</div>}
+        <input className="input" value={name} onChange={e=>setName(e.target.value)} placeholder="Full name" required />
+        <input className="input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" required />
+        <input className="input" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" required />
+        <div className="row" style={{marginTop:6}}>
+          <button className="btn btn-primary" type="submit" disabled={loading}>
+            {loading ? "Registering..." : "Register"}
+          </button>
+          <button type="button" className="btn" onClick={() => switchToLogin && switchToLogin()}>
+            Back to login
+          </button>
         </div>
       </form>
     </div>

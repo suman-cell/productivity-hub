@@ -1,11 +1,14 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-import './index.css';
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./styles.css";
+import { ToastProvider } from "./components/ToastContext";
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </React.StrictMode>
 );
 

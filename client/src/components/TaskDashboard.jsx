@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../api";
 
-export default function TaskDashboard({ user, onLogout }) {
+export default function TaskDashboard({ user }) {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   function isAdmin() {
     return user?.role === "admin";
   }
 
   function isAssignee(task) {
-    // task.assignee may be populated object or an id string
     if (!task) return false;
     const assignee = task.assignee;
     if (!assignee) return false;
-    if (typeof assignee === "string") return assignee === user?.id;
-    // populated object
-    return assignee._id === user?.id || assignee.id === user?.id;
+    if (typeof assignee === "string") return assignee === user?.id || assignee === user?._id;
+    return assignee._id === user?.id || assignee._id === user?._id || assignee.id === user?.id;
   }
 
   async function fetchTasks() {
@@ -55,7 +55,6 @@ export default function TaskDashboard({ user, onLogout }) {
     if (!confirm("Delete task?")) return;
     try {
       await API.delete(`/tasks/${id}`);
-      // optimistic UI: filter out removed
       setTasks(prev => prev.filter(t => t._id !== id));
     } catch (err) {
       console.error("Delete failed", err);
@@ -65,13 +64,16 @@ export default function TaskDashboard({ user, onLogout }) {
 
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      {/* Page header: title + optional admin link (nav handles user + logout) */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h1>Tasks</h1>
-        <div>
-          <strong>{user?.name}</strong>
-          <span style={{ marginLeft: 8, fontSize: 13, color: "#666" }}>{user?.role}</span>
-          <button onClick={onLogout} style={{ marginLeft: 12 }}>Logout</button>
-        </div>
+        <h1 style={{ margin: 0 }}>Tasks</h1>
+
+        {/* Keep a small admin nav button here only if you want; NavBar also has Admin link */}
+        {isAdmin() && (
+          <button onClick={() => navigate('/admin')} style={{ marginLeft: 12 }}>
+            Admin: Users
+          </button>
+        )}
       </div>
 
       <form onSubmit={addTask} style={{ marginBottom: 16, display: "flex", gap: 8 }}>
@@ -100,11 +102,9 @@ export default function TaskDashboard({ user, onLogout }) {
             </div>
 
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {/* Edit button could be shown to assignee or admin as well */}
               {(isAdmin() || isAssignee(t)) && (
                 <button onClick={async () => {
-                  // simple quick state change to toggle status for demo
-                  const nextStatus = t.status === "todo" ? "inprogress" : "done";
+                  const nextStatus = t.status === "todo" ? "inprogress" : (t.status === "inprogress" ? "done" : "todo");
                   try {
                     const res = await API.put(`/tasks/${t._id}`, { status: nextStatus });
                     setTasks(prev => prev.map(x => x._id === t._id ? res.data : x));
@@ -115,12 +115,9 @@ export default function TaskDashboard({ user, onLogout }) {
                 }}>Toggle Status</button>
               )}
 
-              {/* Delete only visible to admin or assignee */}
               {(isAdmin() || isAssignee(t)) ? (
                 <button onClick={() => removeTask(t._id)} style={{ color: "crimson" }}>Delete</button>
-              ) : (
-                <button disabled style={{ opacity: 0.4, cursor: "not-allowed" }} title="Only assignee or admin can delete">Delete</button>
-              )}
+              ) : null}
             </div>
           </li>
         ))}

@@ -8,6 +8,8 @@ export default function TaskDashboard({ user }) {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState("all"); // NEW: filter state
+  const [search, setSearch] = useState("");   // NEW: search state
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -82,6 +84,19 @@ export default function TaskDashboard({ user }) {
     }
   }
 
+  // NEW: counts for tabs
+  const counts = {
+    all: tasks.length,
+    todo: tasks.filter(t => t.status === "todo").length,
+    inprogress: tasks.filter(t => t.status === "inprogress").length,
+    done: tasks.filter(t => t.status === "done").length,
+  };
+
+  // NEW: filtered + searched tasks
+  const visibleTasks = tasks
+    .filter(t => filter === "all" || t.status === filter)
+    .filter(t => t.title.toLowerCase().includes(search.toLowerCase()));
+
   return (
     <div className="container">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -93,6 +108,31 @@ export default function TaskDashboard({ user }) {
         )}
       </div>
 
+      {/* NEW: filter tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {["all","todo","inprogress","done"].map(key => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`btn ${filter === key ? "btn-primary" : ""}`}
+          >
+            {key.toUpperCase()} ({counts[key]})
+          </button>
+        ))}
+      </div>
+
+      {/* NEW: search box */}
+      <div className="card" style={{ marginBottom: 16, display:"flex", gap:8 }}>
+        <input
+          className="input"
+          placeholder="Search tasks..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex:1 }}
+        />
+      </div>
+
+      {/* Add task form */}
       <div className="card" style={{ marginBottom: 16 }}>
         <form onSubmit={addTask} className="row">
           <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="New task title" />
@@ -102,9 +142,11 @@ export default function TaskDashboard({ user }) {
         </form>
       </div>
 
+      {/* Task list */}
       <div className="card">
+        {visibleTasks.length === 0 && <p style={{color:"var(--muted)"}}>No tasks found.</p>}
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {tasks.map(t => (
+          {visibleTasks.map(t => (
             <li key={t._id} className="task">
               <div>
                 <div className="task-title">{t.title}</div>

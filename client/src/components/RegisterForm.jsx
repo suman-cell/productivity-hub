@@ -7,23 +7,54 @@ export default function RegisterForm({ onRegistered, switchToLogin }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // NEW
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
+  // simple validators
+  function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function getPasswordStrength(pw) {
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/\d/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+    if (score <= 1) return { label: "Weak", color: "var(--danger)" };
+    if (score === 2 || score === 3) return { label: "Medium", color: "#f59e0b" }; // amber
+    return { label: "Strong", color: "var(--success)" };
+  }
+
+  const strength = getPasswordStrength(password);
+
   async function submit(e) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    if (strength.label === "Weak") {
+      setError("Password too weak. Use at least 8 chars, with uppercase, number, and symbol.");
+      return;
+    }
+
+    setLoading(true);
     try {
       await API.post("/auth/register", { name, email, password });
       toast.show("Registered successfully", "success");
 
+      // Auto-login
       const loginRes = await API.post("/auth/login", { email, password });
       const token = loginRes.data.token;
       const user = loginRes.data.user;
+
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       toast.show(`Welcome, ${user.name}`, "success");
@@ -91,6 +122,14 @@ export default function RegisterForm({ onRegistered, switchToLogin }) {
               )}
             </button>
           </div>
+
+          {/* password strength indicator */}
+          {password && (
+            <div className="password-strength">
+              <div className="strength-bar" style={{ background: strength.color }}></div>
+              <span style={{ fontSize: 13, color: strength.color }}>{strength.label}</span>
+            </div>
+          )}
 
           <button className="btn btn-primary" type="submit" disabled={loading}>
             {loading ? "Registering..." : "Register"}

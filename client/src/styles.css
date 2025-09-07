@@ -270,6 +270,56 @@ body{
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 0.3s ease;
 }
+/* Kanban layout */
+.kanban {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.kanban-column {
+  flex: 1;
+  min-width: 280px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.04);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.kanban-title {
+  margin-top: 0;
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.kanban-task {
+  background: var(--card);
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  transition: transform .15s ease;
+}
+
+.kanban-task.dragging {
+  transform: rotate(2deg);
+}
+
+.kanban-column.dragging {
+  background: rgba(37,99,235,0.08);
+}
+
+/* Scrollbar styling for Kanban columns */
+.kanban-column::-webkit-scrollbar {
+  width: 6px;
+}
+.kanban-column::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
 
 
 /* responsive */

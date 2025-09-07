@@ -3,13 +3,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
 import { useToast } from "./ToastContext";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 export default function TaskDashboard({ user }) {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState("");
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -60,20 +59,13 @@ export default function TaskDashboard({ user }) {
     }
   }
 
-  async function toggleStatus(t) {
-    const nextStatus =
-      t.status === "todo"
-        ? "inprogress"
-        : t.status === "inprogress"
-        ? "done"
-        : "todo";
+  async function updateStatus(id, status) {
     try {
-      const res = await API.put(`/tasks/${t._id}`, { status: nextStatus });
-      setTasks((prev) => prev.map((x) => (x._id === t._id ? res.data : x)));
-      toast.show("Task updated", "success");
+      const res = await API.put(`/tasks/${id}`, { status });
+      setTasks(prev => prev.map(t => t._id === id ? res.data : t));
     } catch (err) {
       console.error(err);
-      toast.show(err?.response?.data?.msg || "Update failed", "error");
+      toast.show("Update failed", "error");
     }
   }
 
@@ -81,7 +73,7 @@ export default function TaskDashboard({ user }) {
     if (!confirm("Delete task?")) return;
     try {
       await API.delete(`/tasks/${id}`);
-      setTasks((prev) => prev.filter((t) => t._id !== id));
+      setTasks(prev => prev.filter(t => t._id !== id));
       toast.show("Task deleted", "info");
     } catch (err) {
       console.error("Delete failed", err);
@@ -89,92 +81,41 @@ export default function TaskDashboard({ user }) {
     }
   }
 
-  // counts
-  const counts = {
-    all: tasks.length,
-    todo: tasks.filter((t) => t.status === "todo").length,
-    inprogress: tasks.filter((t) => t.status === "inprogress").length,
-    done: tasks.filter((t) => t.status === "done").length,
+  // group tasks by status
+  const columns = {
+    todo: tasks.filter(t => t.status === "todo"),
+    inprogress: tasks.filter(t => t.status === "inprogress"),
+    done: tasks.filter(t => t.status === "done"),
   };
 
-  // progress % (done/total)
-  const progressPct =
-    counts.all === 0 ? 0 : Math.round((counts.done / counts.all) * 100);
+  function onDragEnd(result) {
+    if (!result.destination) return;
+    const { source, destination, draggableId } = result;
 
-  // visible tasks
-  const visibleTasks = tasks
-    .filter((t) => filter === "all" || t.status === filter)
-    .filter((t) => t.title.toLowerCase().includes(search.toLowerCase()));
+    // if moved across columns → update status in DB
+    if (source.droppableId !== destination.droppableId) {
+      updateStatus(draggableId, destination.droppableId);
+    }
+  }
 
   return (
     <div className="container">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Tasks</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}>Kanban Board</h1>
         {isAdmin() && (
-          <button
-            className="btn"
-            onClick={() => navigate("/admin")}
-            style={{ marginLeft: 12 }}
-          >
+          <button className="btn" onClick={() => navigate('/admin')} style={{ marginLeft: 12 }}>
             Admin: Users
           </button>
         )}
       </div>
 
-      {/* NEW: Progress bar */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ marginBottom: 6, fontSize: 14, color: "var(--muted)" }}>
-          Progress: {progressPct}%
-        </div>
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${progressPct}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Filter tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {["all", "todo", "inprogress", "done"].map((key) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`btn ${filter === key ? "btn-primary" : ""}`}
-          >
-            {key.toUpperCase()} ({counts[key]})
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div
-        className="card"
-        style={{ marginBottom: 16, display: "flex", gap: 8 }}
-      >
-        <input
-          className="input"
-          placeholder="Search tasks..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1 }}
-        />
-      </div>
-
-      {/* Add task */}
+      {/* Add task form */}
       <div className="card" style={{ marginBottom: 16 }}>
         <form onSubmit={addTask} className="row">
           <input
             className="input"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={e => setTitle(e.target.value)}
             placeholder="New task title"
           />
           <button className="btn btn-primary" type="submit" disabled={loading}>
@@ -183,61 +124,50 @@ export default function TaskDashboard({ user }) {
         </form>
       </div>
 
-      {/* Task list */}
-      <div className="card">
-        {visibleTasks.length === 0 && (
-          <p style={{ color: "var(--muted)" }}>No tasks found.</p>
-        )}
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {visibleTasks.map((t) => (
-            <li key={t._id} className="task">
-              <div>
-                <div className="task-title">{t.title}</div>
-                <div className="task-meta">
-                  {t.status} • {new Date(t.createdAt).toLocaleString()}
-                </div>
+      {/* Kanban columns */}
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="kanban">
+          {["todo", "inprogress", "done"].map(col => (
+            <Droppable droppableId={col} key={col}>
+              {(provided, snapshot) => (
                 <div
-                  style={{
-                    marginTop: 6,
-                    fontSize: 13,
-                    color: "#cbd5e1",
-                  }}
+                  className={`kanban-column ${snapshot.isDraggingOver ? "dragging" : ""}`}
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
                 >
-                  Assigned to:{" "}
-                  {t.assignee
-                    ? typeof t.assignee === "string"
-                      ? t.assignee
-                      : t.assignee.name || t.assignee.email
-                    : "Unassigned"}{" "}
-                  {t.assignee && typeof t.assignee !== "string" && (
-                    <span className="badge" style={{ marginLeft: 8 }}>
-                      {t.assignee.role || "member"}
-                    </span>
-                  )}
+                  <h3 className="kanban-title">{col.toUpperCase()}</h3>
+                  {columns[col].map((t, index) => (
+                    <Draggable draggableId={t._id} index={index} key={t._id}>
+                      {(provided, snapshot) => (
+                        <div
+                          className={`kanban-task ${snapshot.isDragging ? "dragging" : ""}`}
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                        >
+                          <div className="task-title">{t.title}</div>
+                          <div className="task-meta">
+                            {new Date(t.createdAt).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: 12, marginTop: 6, color: "var(--muted)" }}>
+                            {t.assignee ? (typeof t.assignee === "string" ? t.assignee : t.assignee.name || t.assignee.email) : "Unassigned"}
+                          </div>
+                          {(isAdmin() || isAssignee(t)) && (
+                            <button className="btn" onClick={() => removeTask(t._id)} style={{ marginTop: 6, color: "crimson" }}>
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
                 </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {(isAdmin() || isAssignee(t)) && (
-                  <button className="btn" onClick={() => toggleStatus(t)}>
-                    Toggle Status
-                  </button>
-                )}
-
-                {(isAdmin() || isAssignee(t)) ? (
-                  <button
-                    className="btn"
-                    onClick={() => removeTask(t._id)}
-                    style={{ color: "crimson" }}
-                  >
-                    Delete
-                  </button>
-                ) : null}
-              </div>
-            </li>
+              )}
+            </Droppable>
           ))}
-        </ul>
-      </div>
+        </div>
+      </DragDropContext>
     </div>
   );
 }

@@ -10,6 +10,7 @@ export default function TaskDashboard({ user }) {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("newest"); // NEW
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -100,9 +101,18 @@ export default function TaskDashboard({ user }) {
   const progressPct =
     counts.all === 0 ? 0 : Math.round((counts.done / counts.all) * 100);
 
-  const visibleTasks = tasks
+  // filtering + searching
+  let visibleTasks = tasks
     .filter((t) => filter === "all" || t.status === filter)
     .filter((t) => t.title.toLowerCase().includes(search.toLowerCase()));
+
+  // NEW: sorting logic
+  visibleTasks = [...visibleTasks].sort((a, b) => {
+    if (sortBy === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
+    if (sortBy === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
+    if (sortBy === "title") return a.title.localeCompare(b.title);
+    return 0;
+  });
 
   return (
     <div className="container">
@@ -139,8 +149,8 @@ export default function TaskDashboard({ user }) {
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      {/* Filter + Sort row */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {["all", "todo", "inprogress", "done"].map((key) => (
           <button
             key={key}
@@ -150,6 +160,18 @@ export default function TaskDashboard({ user }) {
             {key.toUpperCase()} ({counts[key]})
           </button>
         ))}
+
+        {/* NEW: sort dropdown */}
+        <select
+          className="input"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          style={{ maxWidth: 180, marginLeft: "auto" }}
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="title">Title (A–Z)</option>
+        </select>
       </div>
 
       {/* Search */}

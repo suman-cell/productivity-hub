@@ -25,6 +25,10 @@ app.use('/api/auth', authRoutes);
 const taskRoutes = require('./routes/tasks');
 app.use('/api/tasks', taskRoutes);
 
+const adminUsersRoutes = require('./routes/adminUsers');
+app.use('/api/admin', adminUsersRoutes);
+
+
 
 mongoose.connect(MONGO)
   .then(() => {

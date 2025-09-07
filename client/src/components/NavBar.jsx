@@ -57,31 +57,37 @@ export default function NavBar({ user, onLogout }) {
       </nav>
 
       <div className="nav-right">
-        {user ? (
-          <>
-            <div className="avatar" title={`${user.name} • ${user.role}`}>
-              {getInitials(user.name)}
-            </div>
-            <span className="badge">{user.role}</span>
-            <button className="btn btn-ghost nav-logout" onClick={handleLogout}>Logout</button>
-          </>
-        ) : (
-          <Link to="/" className="nav-link" onClick={() => setOpen(false)}>Login / Register</Link>
-        )}
-
-        <button
-          className="nav-toggle"
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          onClick={handleToggle}
-        >
-          {open ? (
-            <svg width="20" height="20" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6L18 18M6 18L18 6" /></svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M3 12h18M3 18h18" /></svg>
-          )}
-        </button>
+  {user ? (
+    <>
+      <div className="tooltip">
+        <div className="avatar">{getInitials(user.name)}</div>
+        <span className="tooltiptext">
+          {user.name}
+          <br />
+          {user.email || user.role}
+        </span>
       </div>
+      <span className="badge">{user.role}</span>
+      <button className="btn btn-ghost nav-logout" onClick={handleLogout}>Logout</button>
+    </>
+  ) : (
+    <Link to="/" className="nav-link" onClick={() => setOpen(false)}>Login / Register</Link>
+  )}
+
+  <button
+    className="nav-toggle"
+    aria-label={open ? "Close menu" : "Open menu"}
+    aria-expanded={open}
+    onClick={handleToggle}
+  >
+    {open ? (
+      <svg width="20" height="20" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6L18 18M6 18L18 6" /></svg>
+    ) : (
+      <svg width="20" height="20" viewBox="0 0 24 24"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M3 12h18M3 18h18" /></svg>
+    )}
+  </button>
+</div>
+
     </header>
   );
 }

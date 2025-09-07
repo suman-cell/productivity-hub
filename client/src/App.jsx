@@ -5,6 +5,8 @@ import LoginForm from "./components/LoginForm";
 import RegisterForm from "./components/RegisterForm";
 import TaskDashboard from "./components/TaskDashboard";
 import AdminUsers from "./components/AdminUsers";
+import NavBar from "./components/NavBar";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -18,18 +20,8 @@ export default function App() {
       return null;
     }
   });
-  const [showRegister, setShowRegister] = useState(false);
 
-  useEffect(() => {
-    // keep localStorage and state shapes consistent
-    const raw = localStorage.getItem("user");
-    if (raw) {
-      const u = JSON.parse(raw);
-      if (!u.id && u._id) u.id = u._id;
-      setUser(u);
-    }
-  }, []);
-
+  // simple handler that sets user and stores to localStorage
   const handleLogin = (userObj) => {
     if (!userObj.id && userObj._id) userObj.id = userObj._id;
     setUser(userObj);
@@ -40,44 +32,48 @@ export default function App() {
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
+    // optionally redirect to home
+    window.location.href = "/";
   };
 
   return (
     <BrowserRouter>
+      <NavBar user={user} onLogout={handleLogout} />
+
       <Routes>
-        {/* public routes */}
         <Route
           path="/"
           element={
             user ? (
               <TaskDashboard user={user} onLogout={handleLogout} />
-            ) : showRegister ? (
-              <RegisterForm onRegistered={handleLogin} switchToLogin={() => setShowRegister(false)} />
             ) : (
-              <LoginForm onLogin={handleLogin} switchToRegister={() => setShowRegister(true)} />
+              <AuthLanding onLogin={handleLogin} />
             )
           }
         />
 
-        {/* admin page - protect client-side too (server enforces too) */}
+        {/* Admin route — protected for admins only */}
         <Route
           path="/admin"
           element={
-            user ? (
-              user.role === "admin" ? (
-                <AdminUsers user={user} />
-              ) : (
-                <div style={{ padding: 20 }}>Access denied — admin only.</div>
-              )
-            ) : (
-              <Navigate to="/" replace />
-            )
+            <ProtectedRoute user={user} roles={['admin']}>
+              <AdminUsers user={user} />
+            </ProtectedRoute>
           }
         />
 
-        {/* fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+  );
+}
+
+// small combined login/register landing to keep route simple
+function AuthLanding({ onLogin }) {
+  const [showRegister, setShowRegister] = useState(false);
+  return showRegister ? (
+    <RegisterForm onRegistered={onLogin} switchToLogin={() => setShowRegister(false)} />
+  ) : (
+    <LoginForm onLogin={onLogin} switchToRegister={() => setShowRegister(true)} />
   );
 }
